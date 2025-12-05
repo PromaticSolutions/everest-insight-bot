@@ -1,316 +1,345 @@
-import React, { createContext, useContext, ReactNode, useState, useEffect } from "react";
-import { Employee, Question, TestSubmission, Test } from "@/types";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { Question, Employee, TestSubmission } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
-import { initialQuestions } from "@/data/initialQuestions";
+import { useToast } from "@/hooks/use-toast";
 
 interface DataContextType {
-  employees: Employee[];
   questions: Question[];
+  employees: Employee[];
   submissions: TestSubmission[];
-  tests: Test[];
-  currentEmployee: Employee | null;
-  setCurrentEmployee: (employee: Employee | null) => void;
-  addEmployee: (employee: Omit<Employee, "id" | "createdAt">) => Promise<Employee | null>;
   addQuestion: (question: Omit<Question, "id">) => Promise<void>;
   updateQuestion: (question: Question) => Promise<void>;
   deleteQuestion: (id: string) => Promise<void>;
-  addSubmission: (submission: Omit<TestSubmission, "id">) => Promise<void>;
+  addEmployee: (employee: Omit<Employee, "id">) => Promise<void>;
+  updateEmployee: (employee: Employee) => Promise<void>;
+  deleteEmployee: (id: string) => Promise<void>;
+  addSubmission: (submission: Omit<TestSubmission, "id" | "submittedAt">) => Promise<void>;
   updateSubmission: (submission: TestSubmission) => Promise<void>;
-  getSubmissionByEmployee: (employeeId: string) => TestSubmission | undefined;
-  loading: boolean;
+  deleteSubmission: (id: string) => Promise<void>;
+  hasEmployeeSubmitted: (employeeId: string) => boolean;
   refreshData: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-export function DataProvider({ children }: { children: ReactNode }) {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [submissions, setSubmissions] = useState<TestSubmission[]>([]);
-  const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  const tests: Test[] = [
-    {
-      id: "test1",
-      title: "Avaliação Excel Nível Intermediário",
-      description: "Teste de conhecimentos em Excel abordando estruturação de dados, fórmulas, funções de texto, tabelas dinâmicas e dashboards.",
-      questions: questions,
-      isActive: true
-    }
-  ];
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const fetchEmployees = async () => {
-    const { data, error } = await supabase.from("employees").select("*").order("created_at", { ascending: false });
-    if (error) {
-      console.error("Error fetching employees:", error);
-      return;
-    }
-    setEmployees(data.map(e => ({
-      id: e.id,
-      fullName: e.name,
-      sector: e.sector,
-      position: e.position,
-      createdAt: e.created_at
-    })));
-  };
+  const loadData = async () => {
+    try {
+      // Load questions
+      const { data: questionsData, error: questionsError } = await supabase
+        .from("questions")
+        .select("*")
+        .order("created_at", { ascending: true });
 
-  const fetchQuestions = async () => {
-    const { data, error } = await supabase.from("questions").select("*").order("created_at", { ascending: true });
-    if (error) {
-      console.error("Error fetching questions:", error);
-      return;
-    }
-    if (data.length === 0) {
-      // Seed initial questions
-      await seedInitialQuestions();
-    } else {
-      setQuestions(data.map(q => ({
-        id: q.id,
-        questionText: q.question,
-        options: q.options as string[],
-        correctAnswer: q.correct_answer,
-        category: q.category
-      })));
-    }
-  };
+      if (questionsError) throw questionsError;
+      setQuestions(questionsData || []);
 
-  const seedInitialQuestions = async () => {
-    const questionsToInsert = initialQuestions.map(q => ({
-      question: q.questionText,
-      options: q.options,
-      correct_answer: q.correctAnswer,
-      category: q.category
-    }));
+      // Load employees
+      const { data: employeesData, error: employeesError } = await supabase
+        .from("employees")
+        .select("*")
+        .order("full_name", { ascending: true });
 
-    const { data, error } = await supabase.from("questions").insert(questionsToInsert).select();
-    if (error) {
-      console.error("Error seeding questions:", error);
-      return;
-    }
-    if (data) {
-      setQuestions(data.map(q => ({
-        id: q.id,
-        questionText: q.question,
-        options: q.options as string[],
-        correctAnswer: q.correct_answer,
-        category: q.category
-      })));
-    }
-  };
+      if (employeesError) throw employeesError;
+      setEmployees(employeesData || []);
 
-  const fetchSubmissions = async () => {
-    const { data, error } = await supabase
-      .from("test_submissions")
-      .select(`*, employees(*)`)
-      .order("created_at", { ascending: false });
-    
-    if (error) {
-      console.error("Error fetching submissions:", error);
-      return;
+      // Load submissions
+      const { data: submissionsData, error: submissionsError } = await supabase
+        .from("test_submissions")
+        .select(`
+          *,
+          employee:employee_id (
+            id,
+            full_name,
+            position,
+            sector,
+            has_submitted
+          )
+        `)
+        .order("submitted_at", { ascending: false });
+
+      if (submissionsError) throw submissionsError;
+      
+      // Transform data to match our interface
+      const transformedSubmissions = submissionsData?.map((sub: any) => ({
+        id: sub.id,
+        employee: {
+          id: sub.employee.id,
+          fullName: sub.employee.full_name,
+          position: sub.employee.position,
+          sector: sub.employee.sector,
+          hasSubmitted: sub.employee.has_submitted
+        },
+        answers: sub.answers,
+        score: sub.score,
+        feedback: sub.feedback,
+        submittedAt: sub.submitted_at
+      })) || [];
+
+      setSubmissions(transformedSubmissions);
+    } catch (error) {
+      console.error("Error loading data:", error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Tente recarregar a página.",
+        variant: "destructive",
+      });
     }
-    
-    setSubmissions(data.map(s => ({
-      id: s.id,
-      employeeId: s.employee_id,
-      employee: {
-        id: s.employees.id,
-        fullName: s.employees.name,
-        sector: s.employees.sector,
-        position: s.employees.position,
-        createdAt: s.employees.created_at
-      },
-      answers: s.answers as Record<string, number>,
-      submittedAt: s.completed_at || s.created_at,
-      score: s.score || 0,
-      feedback: s.ai_feedback || undefined
-    })));
   };
 
   const refreshData = async () => {
-    setLoading(true);
-    await Promise.all([fetchEmployees(), fetchQuestions(), fetchSubmissions()]);
-    setLoading(false);
+    await loadData();
   };
 
-  useEffect(() => {
-    refreshData();
-  }, []);
-
-  const addEmployee = async (employee: Omit<Employee, "id" | "createdAt">): Promise<Employee | null> => {
-    const { data, error } = await supabase
-      .from("employees")
-      .insert({
-        name: employee.fullName,
-        sector: employee.sector,
-        position: employee.position
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error adding employee:", error);
-      return null;
-    }
-
-    const newEmployee: Employee = {
-      id: data.id,
-      fullName: data.name,
-      sector: data.sector,
-      position: data.position,
-      createdAt: data.created_at
-    };
-
-    setEmployees(prev => [newEmployee, ...prev]);
-    return newEmployee;
-  };
-
+  // Questions CRUD
   const addQuestion = async (question: Omit<Question, "id">) => {
-    const { data, error } = await supabase
-      .from("questions")
-      .insert({
-        question: question.questionText,
-        options: question.options,
-        correct_answer: question.correctAnswer,
-        category: question.category
-      })
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("questions")
+        .insert([{
+          question_text: question.questionText,
+          options: question.options,
+          correct_answer: question.correctAnswer,
+          category: question.category
+        }])
+        .select()
+        .single();
 
-    if (error) {
+      if (error) throw error;
+      await loadData();
+    } catch (error) {
       console.error("Error adding question:", error);
-      return;
+      throw error;
     }
-
-    const newQuestion: Question = {
-      id: data.id,
-      questionText: data.question,
-      options: data.options as string[],
-      correctAnswer: data.correct_answer,
-      category: data.category
-    };
-
-    setQuestions(prev => [...prev, newQuestion]);
   };
 
   const updateQuestion = async (question: Question) => {
-    const { error } = await supabase
-      .from("questions")
-      .update({
-        question: question.questionText,
-        options: question.options,
-        correct_answer: question.correctAnswer,
-        category: question.category
-      })
-      .eq("id", question.id);
+    try {
+      const { error } = await supabase
+        .from("questions")
+        .update({
+          question_text: question.questionText,
+          options: question.options,
+          correct_answer: question.correctAnswer,
+          category: question.category
+        })
+        .eq("id", question.id);
 
-    if (error) {
+      if (error) throw error;
+      await loadData();
+    } catch (error) {
       console.error("Error updating question:", error);
-      return;
+      throw error;
     }
-
-    setQuestions(prev => prev.map(q => q.id === question.id ? question : q));
   };
 
   const deleteQuestion = async (id: string) => {
-    const { error } = await supabase.from("questions").delete().eq("id", id);
+    try {
+      const { error } = await supabase
+        .from("questions")
+        .delete()
+        .eq("id", id);
 
-    if (error) {
+      if (error) throw error;
+      await loadData();
+    } catch (error) {
       console.error("Error deleting question:", error);
-      return;
+      throw error;
     }
-
-    setQuestions(prev => prev.filter(q => q.id !== id));
   };
 
-  const addSubmission = async (submission: Omit<TestSubmission, "id">) => {
-    const { data, error } = await supabase
-      .from("test_submissions")
-      .insert({
-        employee_id: submission.employeeId,
-        answers: submission.answers,
-        score: submission.score,
-        total_questions: questions.length,
-        completed_at: submission.submittedAt
-      })
-      .select(`*, employees(*)`)
-      .single();
+  // Employees CRUD
+  const addEmployee = async (employee: Omit<Employee, "id">) => {
+    try {
+      const { data, error } = await supabase
+        .from("employees")
+        .insert([{
+          full_name: employee.fullName,
+          position: employee.position,
+          sector: employee.sector,
+          has_submitted: false
+        }])
+        .select()
+        .single();
 
-    if (error) {
-      console.error("Error adding submission:", error);
-      return;
+      if (error) throw error;
+      await loadData();
+    } catch (error) {
+      console.error("Error adding employee:", error);
+      throw error;
     }
+  };
 
-    const newSubmission: TestSubmission = {
-      id: data.id,
-      employeeId: data.employee_id,
-      employee: {
-        id: data.employees.id,
-        fullName: data.employees.name,
-        sector: data.employees.sector,
-        position: data.employees.position,
-        createdAt: data.employees.created_at
-      },
-      answers: data.answers as Record<string, number>,
-      submittedAt: data.completed_at || data.created_at,
-      score: data.score || 0,
-      feedback: data.ai_feedback || undefined
-    };
+  const updateEmployee = async (employee: Employee) => {
+    try {
+      const { error } = await supabase
+        .from("employees")
+        .update({
+          full_name: employee.fullName,
+          position: employee.position,
+          sector: employee.sector
+        })
+        .eq("id", employee.id);
 
-    setSubmissions(prev => [newSubmission, ...prev]);
+      if (error) throw error;
+      await loadData();
+    } catch (error) {
+      console.error("Error updating employee:", error);
+      throw error;
+    }
+  };
+
+  const deleteEmployee = async (id: string) => {
+    try {
+      // First check if employee has submissions
+      const { data: submissionsData } = await supabase
+        .from("test_submissions")
+        .select("id")
+        .eq("employee_id", id);
+
+      if (submissionsData && submissionsData.length > 0) {
+        throw new Error("Não é possível excluir um colaborador que já realizou testes. Exclua os testes primeiro.");
+      }
+
+      const { error } = await supabase
+        .from("employees")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+      await loadData();
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      throw error;
+    }
+  };
+
+  // Submissions CRUD
+  const addSubmission = async (submission: Omit<TestSubmission, "id" | "submittedAt">) => {
+    try {
+      const { data, error } = await supabase
+        .from("test_submissions")
+        .insert([{
+          employee_id: submission.employee.id,
+          answers: submission.answers,
+          score: submission.score,
+          feedback: submission.feedback || null
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update employee has_submitted flag
+      const { error: updateError } = await supabase
+        .from("employees")
+        .update({ has_submitted: true })
+        .eq("id", submission.employee.id);
+
+      if (updateError) throw updateError;
+
+      await loadData();
+    } catch (error) {
+      console.error("Error adding submission:", error);
+      throw error;
+    }
   };
 
   const updateSubmission = async (submission: TestSubmission) => {
-    const { error } = await supabase
-      .from("test_submissions")
-      .update({
-        answers: submission.answers,
-        score: submission.score,
-        ai_feedback: submission.feedback
-      })
-      .eq("id", submission.id);
+    try {
+      const { error } = await supabase
+        .from("test_submissions")
+        .update({
+          answers: submission.answers,
+          score: submission.score,
+          feedback: submission.feedback
+        })
+        .eq("id", submission.id);
 
-    if (error) {
+      if (error) throw error;
+      await loadData();
+    } catch (error) {
       console.error("Error updating submission:", error);
-      return;
+      throw error;
     }
-
-    setSubmissions(prev => prev.map(s => s.id === submission.id ? submission : s));
   };
 
-  const getSubmissionByEmployee = (employeeId: string) => {
-    return submissions.find(s => s.employeeId === employeeId);
+  const deleteSubmission = async (id: string) => {
+    try {
+      // Get the submission to find the employee_id
+      const { data: submissionData, error: fetchError } = await supabase
+        .from("test_submissions")
+        .select("employee_id")
+        .eq("id", id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Delete the submission
+      const { error: deleteError } = await supabase
+        .from("test_submissions")
+        .delete()
+        .eq("id", id);
+
+      if (deleteError) throw deleteError;
+
+      // Reset employee's has_submitted flag to allow them to retake the test
+      const { error: updateError } = await supabase
+        .from("employees")
+        .update({ has_submitted: false })
+        .eq("id", submissionData.employee_id);
+
+      if (updateError) throw updateError;
+
+      await loadData();
+    } catch (error) {
+      console.error("Error deleting submission:", error);
+      throw error;
+    }
+  };
+
+  const hasEmployeeSubmitted = (employeeId: string): boolean => {
+    const employee = employees.find(e => e.id === employeeId);
+    return employee?.hasSubmitted || false;
   };
 
   return (
     <DataContext.Provider
       value={{
-        employees,
         questions,
+        employees,
         submissions,
-        tests,
-        currentEmployee,
-        setCurrentEmployee,
-        addEmployee,
         addQuestion,
         updateQuestion,
         deleteQuestion,
+        addEmployee,
+        updateEmployee,
+        deleteEmployee,
         addSubmission,
         updateSubmission,
-        getSubmissionByEmployee,
-        loading,
-        refreshData
+        deleteSubmission,
+        hasEmployeeSubmitted,
+        refreshData,
       }}
     >
       {children}
     </DataContext.Provider>
   );
-}
+};
 
-export function useData() {
+export const useData = () => {
   const context = useContext(DataContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useData must be used within a DataProvider");
   }
   return context;
-}
+};
