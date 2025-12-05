@@ -6,20 +6,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Lock } from "lucide-react";
+import { Building2, Lock, Loader2 } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
   const { addEmployee, setCurrentEmployee } = useData();
   const { toast } = useToast();
   
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     sector: "",
     position: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.fullName || !formData.sector || !formData.position) {
@@ -31,23 +32,34 @@ const Index = () => {
       return;
     }
 
-    const employee = {
-      id: crypto.randomUUID(),
-      fullName: formData.fullName,
-      sector: formData.sector,
-      position: formData.position,
-      createdAt: new Date().toISOString(),
-    };
+    setIsLoading(true);
+    
+    try {
+      const employee = await addEmployee({
+        fullName: formData.fullName,
+        sector: formData.sector,
+        position: formData.position,
+      });
 
-    addEmployee(employee);
-    setCurrentEmployee(employee);
-    
-    toast({
-      title: "Bem-vindo!",
-      description: `Olá ${formData.fullName}, acesse suas provas pendentes.`,
-    });
-    
-    navigate("/dashboard");
+      if (employee) {
+        setCurrentEmployee(employee);
+        
+        toast({
+          title: "Bem-vindo!",
+          description: `Olá ${formData.fullName}, acesse suas provas pendentes.`,
+        });
+        
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível realizar o cadastro.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -77,6 +89,7 @@ const Index = () => {
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                   className="h-11"
+                  disabled={isLoading}
                 />
               </div>
               
@@ -88,6 +101,7 @@ const Index = () => {
                   value={formData.sector}
                   onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
                   className="h-11"
+                  disabled={isLoading}
                 />
               </div>
               
@@ -99,11 +113,19 @@ const Index = () => {
                   value={formData.position}
                   onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                   className="h-11"
+                  disabled={isLoading}
                 />
               </div>
 
-              <Button type="submit" className="w-full h-11 mt-6 font-semibold">
-                Acessar
+              <Button type="submit" className="w-full h-11 mt-6 font-semibold" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Carregando...
+                  </>
+                ) : (
+                  "Acessar"
+                )}
               </Button>
             </form>
           </CardContent>
