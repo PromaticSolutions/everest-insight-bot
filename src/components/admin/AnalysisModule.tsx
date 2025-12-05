@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { User, Briefcase, Building2, ArrowLeft, Copy, Sparkles, Loader2 } from "lucide-react";
 import { TestSubmission } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
+import { generateTestFeedback } from "@/services/aiService";
 
 const AnalysisModule = () => {
   const { submissions, questions, updateSubmission } = useData();
@@ -20,27 +21,23 @@ const AnalysisModule = () => {
     setIsGenerating(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('analyze-test', {
-        body: {
-          employeeName: submission.employee.fullName,
-          position: submission.employee.position,
-          sector: submission.employee.sector,
-          answers: submission.answers,
-          questions: questions.map(q => ({
-            id: q.id,
-            question: q.questionText,
-            options: q.options,
-            correct_answer: q.correctAnswer,
-            category: q.category
-          })),
-          score: submission.score,
-          totalQuestions: questions.length
-        }
+      const result = await generateTestFeedback({
+        employeeName: submission.employee.fullName,
+        position: submission.employee.position,
+        sector: submission.employee.sector,
+        answers: submission.answers,
+        questions: questions.map(q => ({
+          id: q.id,
+          question: q.questionText,
+          options: q.options,
+          correct_answer: q.correctAnswer,
+          category: q.category
+        })),
+        score: submission.score,
+        totalQuestions: questions.length
       });
 
-      if (error) throw error;
-
-      const generatedFeedback = data.feedback;
+      const generatedFeedback = result.feedback;
       setFeedback(generatedFeedback);
       
       const updatedSubmission = { ...submission, feedback: generatedFeedback };
@@ -52,7 +49,7 @@ const AnalysisModule = () => {
       console.error("Error generating feedback:", error);
       toast({
         title: "Erro ao gerar feedback",
-        description: "Tente novamente mais tarde.",
+        description: error instanceof Error ? error.message : "Tente novamente mais tarde.",
         variant: "destructive",
       });
     } finally {
