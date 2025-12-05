@@ -29,6 +29,7 @@ interface AnalyzeTestResponse {
 export async function generateTestFeedback(
   request: AnalyzeTestRequest
 ): Promise<AnalyzeTestResponse> {
+  
   const apiKey = import.meta.env.VITE_AI_GATEWAY_API_KEY;
 
   if (!apiKey) {
@@ -37,7 +38,7 @@ export async function generateTestFeedback(
     );
   }
 
-  // Build detailed analysis of answers
+  // Monta análise detalhada das respostas
   const answerAnalysis = request.questions
     .map((q, index) => {
       const userAnswer = request.answers[q.id];
@@ -73,53 +74,62 @@ Por favor, forneça:
 O feedback deve ser profissional, motivador e direcionado para o desenvolvimento do colaborador.`;
 
   try {
-    const response = await fetch('https://api.verceldeploy.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-mini',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'Você é um especialista em treinamento corporativo e Excel. Forneça feedbacks detalhados e construtivos em português brasileiro.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-      }),
-    });
+    const response = await fetch(
+      'https://api.vercel.com/v1/ai/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4.1-mini',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Você é um especialista em treinamento corporativo e Excel. Forneça feedbacks detalhados e construtivos em português brasileiro.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('AI Gateway error:', response.status, errorText);
 
-      if (response.status === 429) {
-        throw new Error('Limite de requisições excedido. Tente novamente mais tarde.');
+      switch (response.status) {
+        case 429:
+          throw new Error('Limite de requisições excedido. Tente novamente mais tarde.');
+        case 402:
+          throw new Error('Créditos insuficientes. Adicione créditos à sua conta.');
+        case 401:
+          throw new Error('Chave de API inválida ou expirada.');
+        case 404:
+          throw new Error('Endpoint da API não encontrado. Verifique a URL.');
+        default:
+          throw new Error(`Erro na API de IA: ${response.status}`);
       }
-      if (response.status === 402) {
-        throw new Error('Créditos insuficientes. Adicione créditos à sua conta.');
-      }
-      if (response.status === 401) {
-        throw new Error('Chave de API inválida ou expirada.');
-      }
-
-      throw new Error(`Erro na API de IA: ${response.status}`);
     }
 
     const data = await response.json();
-    const feedback = data.choices[0].message.content;
+    const feedback = data.choices?.[0]?.message?.content;
+
+    if (!feedback) {
+      throw new Error('A resposta da IA veio vazia.');
+    }
 
     return { feedback };
   } catch (error) {
+    console.error('Erro ao gerar feedback:', error);
     if (error instanceof Error) {
-      throw error;
+      throw new Error(error.message);
     }
-    throw new Error('Erro ao gerar feedback. Tente novamente.');
+    throw new Error('Erro desconhecido ao gerar feedback.');
   }
 }
