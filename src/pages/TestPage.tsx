@@ -7,16 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useData } from "@/contexts/DataContext";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Send, AlertCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Send, AlertCircle, Loader2 } from "lucide-react";
 
 const TestPage = () => {
   const navigate = useNavigate();
   const { testId } = useParams();
   const { toast } = useToast();
-  const { currentEmployee, questions, addSubmission } = useData();
+  const { currentEmployee, questions, addSubmission, loading } = useData();
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!currentEmployee) {
@@ -25,6 +26,17 @@ const TestPage = () => {
   }, [currentEmployee, navigate]);
 
   if (!currentEmployee) return null;
+
+  if (loading || questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Carregando questões...</p>
+        </div>
+      </div>
+    );
+  }
 
   const currentQuestion = questions[currentIndex];
   const progress = ((currentIndex + 1) / questions.length) * 100;
@@ -46,31 +58,40 @@ const TestPage = () => {
     }
   };
 
-  const handleSubmit = () => {
-    let score = 0;
-    questions.forEach((q) => {
-      if (answers[q.id] === q.correctAnswer) {
-        score++;
-      }
-    });
-
-    const submission = {
-      id: crypto.randomUUID(),
-      employeeId: currentEmployee.id,
-      employee: currentEmployee,
-      answers,
-      submittedAt: new Date().toISOString(),
-      score,
-    };
-
-    addSubmission(submission);
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
     
-    toast({
-      title: "Prova enviada!",
-      description: `Você acertou ${score} de ${questions.length} questões.`,
-    });
-    
-    navigate("/dashboard");
+    try {
+      let score = 0;
+      questions.forEach((q) => {
+        if (answers[q.id] === q.correctAnswer) {
+          score++;
+        }
+      });
+
+      await addSubmission({
+        employeeId: currentEmployee.id,
+        employee: currentEmployee,
+        answers,
+        submittedAt: new Date().toISOString(),
+        score,
+      });
+      
+      toast({
+        title: "Prova enviada!",
+        description: `Você acertou ${score} de ${questions.length} questões.`,
+      });
+      
+      navigate("/dashboard");
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível enviar a prova.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -137,11 +158,15 @@ const TestPage = () => {
               {currentIndex === questions.length - 1 ? (
                 <Button
                   onClick={handleSubmit}
-                  disabled={!allAnswered}
+                  disabled={!allAnswered || isSubmitting}
                   className="gap-2"
                 >
-                  <Send className="w-4 h-4" />
-                  Enviar Prova
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  {isSubmitting ? "Enviando..." : "Enviar Prova"}
                 </Button>
               ) : (
                 <Button onClick={handleNext} className="gap-2">

@@ -14,7 +14,101 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      employees: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          position: string
+          sector: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          position: string
+          sector: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          position?: string
+          sector?: string
+        }
+        Relationships: []
+      }
+      questions: {
+        Row: {
+          category: string
+          correct_answer: number
+          created_at: string
+          id: string
+          options: Json
+          question: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          correct_answer: number
+          created_at?: string
+          id?: string
+          options?: Json
+          question: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          correct_answer?: number
+          created_at?: string
+          id?: string
+          options?: Json
+          question?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      test_submissions: {
+        Row: {
+          ai_feedback: string | null
+          answers: Json
+          completed_at: string | null
+          created_at: string
+          employee_id: string
+          id: string
+          score: number | null
+          total_questions: number | null
+        }
+        Insert: {
+          ai_feedback?: string | null
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+          score?: number | null
+          total_questions?: number | null
+        }
+        Update: {
+          ai_feedback?: string | null
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+          score?: number | null
+          total_questions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_submissions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

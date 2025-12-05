@@ -49,7 +49,7 @@ const QuestionsManager = () => {
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.questionText || formData.options.some(o => !o) || !formData.category) {
       toast({
         title: "Campos obrigatórios",
@@ -60,16 +60,13 @@ const QuestionsManager = () => {
     }
 
     if (editingQuestion) {
-      updateQuestion({
+      await updateQuestion({
         ...editingQuestion,
         ...formData,
       });
       toast({ title: "Questão atualizada!" });
     } else {
-      addQuestion({
-        id: crypto.randomUUID(),
-        ...formData,
-      });
+      await addQuestion(formData);
       toast({ title: "Questão adicionada!" });
     }
 
@@ -77,8 +74,8 @@ const QuestionsManager = () => {
     resetForm();
   };
 
-  const handleDelete = (id: string) => {
-    deleteQuestion(id);
+  const handleDelete = async (id: string) => {
+    await deleteQuestion(id);
     toast({ title: "Questão removida!" });
   };
 
