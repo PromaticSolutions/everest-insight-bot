@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -11,7 +11,6 @@ import { ArrowLeft, ArrowRight, Send, AlertCircle, Loader2 } from "lucide-react"
 
 const TestPage = () => {
   const navigate = useNavigate();
-  const { testId } = useParams();
   const { toast } = useToast();
   const { currentEmployee, questions, addSubmission, loading } = useData();
   
@@ -64,17 +63,16 @@ const TestPage = () => {
     try {
       let score = 0;
       questions.forEach((q) => {
-        if (answers[q.id] === q.correctAnswer) {
+        if (answers[q.id] === q.correct_answer) {
           score++;
         }
       });
 
       await addSubmission({
-        employeeId: currentEmployee.id,
-        employee: currentEmployee,
+        employee_id: currentEmployee.id,
         answers,
-        submittedAt: new Date().toISOString(),
         score,
+        total_questions: questions.length,
       });
       
       toast({
@@ -117,7 +115,7 @@ const TestPage = () => {
               </span>
             </div>
             <CardTitle className="text-xl leading-relaxed">
-              {currentQuestion?.questionText}
+              {currentQuestion?.question}
             </CardTitle>
           </CardHeader>
           <CardContent>

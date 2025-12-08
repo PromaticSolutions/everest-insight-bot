@@ -15,7 +15,7 @@ const Index = () => {
   
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: "",
+    name: "",
     sector: "",
     position: "",
   });
@@ -23,7 +23,7 @@ const Index = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.fullName || !formData.sector || !formData.position) {
+    if (!formData.name || !formData.sector || !formData.position) {
       toast({
         title: "Campos obrigatórios",
         description: "Por favor, preencha todos os campos.",
@@ -36,7 +36,7 @@ const Index = () => {
     
     try {
       const employee = await addEmployee({
-        fullName: formData.fullName,
+        name: formData.name,
         sector: formData.sector,
         position: formData.position,
       });
@@ -46,7 +46,7 @@ const Index = () => {
         
         toast({
           title: "Bem-vindo!",
-          description: `Olá ${formData.fullName}, acesse suas provas pendentes.`,
+          description: `Olá ${formData.name}, acesse suas provas pendentes.`,
         });
         
         navigate("/dashboard");
@@ -82,12 +82,12 @@ const Index = () => {
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Nome Completo</Label>
+                <Label htmlFor="name">Nome Completo</Label>
                 <Input
-                  id="fullName"
+                  id="name"
                   placeholder="Digite seu nome completo"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="h-11"
                   disabled={isLoading}
                 />

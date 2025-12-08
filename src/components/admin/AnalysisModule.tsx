@@ -33,15 +33,18 @@ const AnalysisModule = () => {
     
     try {
       const result = await generateTestFeedback({
-        employeeName: submission.employee.fullName,
-        position: submission.employee.position,
-        sector: submission.employee.sector,
-        answers: submission.answers,
+        employeeName: submission.employee?.name || "Colaborador",
+        position: submission.employee?.position || "",
+        sector: submission.employee?.sector || "",
+        answers: Object.entries(submission.answers).map(([questionId, answerIndex]) => ({
+          questionId,
+          answer: answerIndex
+        })),
         questions: questions.map(q => ({
           id: q.id,
-          question: q.questionText,
+          question: q.question,
           options: q.options,
-          correct_answer: q.correctAnswer,
+          correct_answer: q.correct_answer,
           category: q.category
         })),
         score: submission.score,
@@ -51,7 +54,7 @@ const AnalysisModule = () => {
       const generatedFeedback = result.feedback;
       setFeedback(generatedFeedback);
       
-      const updatedSubmission = { ...submission, feedback: generatedFeedback };
+      const updatedSubmission = { ...submission, ai_feedback: generatedFeedback };
       await updateSubmission(updatedSubmission);
       setSelectedSubmission(updatedSubmission);
       
@@ -75,7 +78,7 @@ const AnalysisModule = () => {
 
   const handleSelectSubmission = (submission: TestSubmission) => {
     setSelectedSubmission(submission);
-    setFeedback(submission.feedback || "");
+    setFeedback(submission.ai_feedback || "");
   };
 
   const handleDeleteSubmission = async () => {
@@ -90,7 +93,6 @@ const AnalysisModule = () => {
       setDeleteDialogOpen(false);
       setSubmissionToDelete(null);
       
-      // Se estava visualizando esse submission, voltar para a lista
       if (selectedSubmission?.id === submissionToDelete.id) {
         setSelectedSubmission(null);
       }
@@ -119,9 +121,9 @@ const AnalysisModule = () => {
               Voltar
             </Button>
             <div>
-              <h2 className="text-2xl font-bold text-foreground">{selectedSubmission.employee.fullName}</h2>
+              <h2 className="text-2xl font-bold text-foreground">{selectedSubmission.employee?.name}</h2>
               <p className="text-muted-foreground">
-                {selectedSubmission.employee.position} • {selectedSubmission.employee.sector}
+                {selectedSubmission.employee?.position} • {selectedSubmission.employee?.sector}
               </p>
             </div>
           </div>
@@ -156,7 +158,7 @@ const AnalysisModule = () => {
             <CardHeader className="pb-2">
               <CardDescription>Data</CardDescription>
               <CardTitle className="text-lg">
-                {new Date(selectedSubmission.submittedAt).toLocaleDateString("pt-BR")}
+                {new Date(selectedSubmission.completed_at || selectedSubmission.created_at).toLocaleDateString("pt-BR")}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -203,7 +205,6 @@ const AnalysisModule = () => {
           </CardContent>
         </Card>
 
-        {/* Detalhes das Respostas */}
         <Card className="shadow-sm border-0 glass">
           <CardHeader>
             <CardTitle>Respostas Detalhadas</CardTitle>
@@ -211,8 +212,8 @@ const AnalysisModule = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {questions.map((question, index) => {
-              const userAnswer = selectedSubmission.answers[index];
-              const isCorrect = userAnswer === question.correctAnswer;
+              const userAnswer = selectedSubmission.answers[question.id];
+              const isCorrect = userAnswer === question.correct_answer;
               
               return (
                 <div key={question.id} className={`p-4 rounded-lg border-2 ${
@@ -226,18 +227,18 @@ const AnalysisModule = () => {
                       {isCorrect ? "Correta" : "Incorreta"}
                     </Badge>
                   </div>
-                  <p className="text-sm mb-3">{question.questionText}</p>
+                  <p className="text-sm mb-3">{question.question}</p>
                   <div className="space-y-2">
                     <div className={`p-2 rounded text-sm ${
-                      userAnswer === question.correctAnswer 
+                      userAnswer === question.correct_answer 
                         ? 'bg-green-100 dark:bg-green-900/30' 
                         : 'bg-red-100 dark:bg-red-900/30'
                     }`}>
-                      <strong>Resposta do colaborador:</strong> {question.options[userAnswer]}
+                      <strong>Resposta do colaborador:</strong> {userAnswer !== undefined ? question.options[userAnswer] : "Não respondida"}
                     </div>
                     {!isCorrect && (
                       <div className="p-2 rounded text-sm bg-green-100 dark:bg-green-900/30">
-                        <strong>Resposta correta:</strong> {question.options[question.correctAnswer]}
+                        <strong>Resposta correta:</strong> {question.options[question.correct_answer]}
                       </div>
                     )}
                   </div>
@@ -299,16 +300,16 @@ const AnalysisModule = () => {
                       {submission.score}/{questions.length}
                     </Badge>
                   </div>
-                  <CardTitle className="text-lg mt-3">{submission.employee.fullName}</CardTitle>
+                  <CardTitle className="text-lg mt-3">{submission.employee?.name}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Briefcase className="w-4 h-4" />
-                    {submission.employee.position}
+                    {submission.employee?.position}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Building2 className="w-4 h-4" />
-                    {submission.employee.sector}
+                    {submission.employee?.sector}
                   </div>
                   <div className="pt-2">
                     <div className="w-full bg-secondary rounded-full h-2">
@@ -334,7 +335,7 @@ const AnalysisModule = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o teste de <strong>{submissionToDelete?.employee.fullName}</strong>?
+              Tem certeza que deseja excluir o teste de <strong>{submissionToDelete?.employee?.name}</strong>?
               <br /><br />
               Esta ação não pode ser desfeita. O colaborador poderá fazer o teste novamente após a exclusão.
             </AlertDialogDescription>
