@@ -18,17 +18,17 @@ const QuestionsManager = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [formData, setFormData] = useState({
-    questionText: "",
+    question: "",
     options: ["", "", "", ""],
-    correctAnswer: 0,
+    correct_answer: 0,
     category: "",
   });
 
   const resetForm = () => {
     setFormData({
-      questionText: "",
+      question: "",
       options: ["", "", "", ""],
-      correctAnswer: 0,
+      correct_answer: 0,
       category: "",
     });
     setEditingQuestion(null);
@@ -38,9 +38,9 @@ const QuestionsManager = () => {
     if (question) {
       setEditingQuestion(question);
       setFormData({
-        questionText: question.questionText,
+        question: question.question,
         options: [...question.options],
-        correctAnswer: question.correctAnswer,
+        correct_answer: question.correct_answer,
         category: question.category,
       });
     } else {
@@ -50,7 +50,7 @@ const QuestionsManager = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.questionText || formData.options.some(o => !o) || !formData.category) {
+    if (!formData.question || formData.options.some(o => !o) || !formData.category) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha todos os campos.",
@@ -62,11 +62,19 @@ const QuestionsManager = () => {
     if (editingQuestion) {
       await updateQuestion({
         ...editingQuestion,
-        ...formData,
+        question: formData.question,
+        options: formData.options,
+        correct_answer: formData.correct_answer,
+        category: formData.category,
       });
       toast({ title: "Questão atualizada!" });
     } else {
-      await addQuestion(formData);
+      await addQuestion({
+        question: formData.question,
+        options: formData.options,
+        correct_answer: formData.correct_answer,
+        category: formData.category,
+      });
       toast({ title: "Questão adicionada!" });
     }
 
@@ -115,8 +123,8 @@ const QuestionsManager = () => {
                 <Label>Pergunta</Label>
                 <Textarea
                   placeholder="Digite a pergunta..."
-                  value={formData.questionText}
-                  onChange={(e) => setFormData({ ...formData, questionText: e.target.value })}
+                  value={formData.question}
+                  onChange={(e) => setFormData({ ...formData, question: e.target.value })}
                   rows={3}
                 />
               </div>
@@ -124,8 +132,8 @@ const QuestionsManager = () => {
               <div className="space-y-3">
                 <Label>Opções de Resposta</Label>
                 <RadioGroup
-                  value={formData.correctAnswer.toString()}
-                  onValueChange={(v) => setFormData({ ...formData, correctAnswer: parseInt(v) })}
+                  value={formData.correct_answer.toString()}
+                  onValueChange={(v) => setFormData({ ...formData, correct_answer: parseInt(v) })}
                 >
                   {formData.options.map((option, index) => (
                     <div key={index} className="flex items-center gap-3">
@@ -140,7 +148,7 @@ const QuestionsManager = () => {
                         }}
                         className="flex-1"
                       />
-                      {formData.correctAnswer === index && (
+                      {formData.correct_answer === index && (
                         <Check className="w-4 h-4 text-success" />
                       )}
                     </div>
@@ -168,12 +176,12 @@ const QuestionsManager = () => {
         <div key={category} className="space-y-3">
           <h3 className="font-semibold text-foreground">{category}</h3>
           <div className="grid gap-3">
-            {questions.filter(q => q.category === category).map((question, index) => (
+            {questions.filter(q => q.category === category).map((question) => (
               <Card key={question.id} className="shadow-sm border-0 glass">
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-4">
                     <CardTitle className="text-base font-medium leading-relaxed">
-                      {questions.indexOf(question) + 1}. {question.questionText}
+                      {questions.indexOf(question) + 1}. {question.question}
                     </CardTitle>
                     <div className="flex gap-1 shrink-0">
                       <Button
@@ -201,7 +209,7 @@ const QuestionsManager = () => {
                       <div
                         key={i}
                         className={`p-2 rounded-lg ${
-                          i === question.correctAnswer
+                          i === question.correct_answer
                             ? "bg-success/10 text-success border border-success/20"
                             : "bg-secondary/50 text-muted-foreground"
                         }`}

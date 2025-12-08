@@ -8,7 +8,7 @@ import { ClipboardList, CheckCircle2, Clock, LogOut, User } from "lucide-react";
 
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
-  const { currentEmployee, setCurrentEmployee, tests, getSubmissionByEmployee } = useData();
+  const { currentEmployee, setCurrentEmployee, questions, getSubmissionByEmployee } = useData();
 
   useEffect(() => {
     if (!currentEmployee) {
@@ -35,7 +35,7 @@ const EmployeeDashboard = () => {
               <User className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="font-semibold text-foreground">{currentEmployee.fullName}</h1>
+              <h1 className="font-semibold text-foreground">{currentEmployee.name}</h1>
               <p className="text-sm text-muted-foreground">{currentEmployee.position} • {currentEmployee.sector}</p>
             </div>
           </div>
@@ -53,45 +53,43 @@ const EmployeeDashboard = () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {tests.filter(t => t.isActive).map((test) => (
-            <Card key={test.id} className="shadow-lg border-0 glass hover:shadow-xl transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                    <ClipboardList className="w-6 h-6 text-primary" />
-                  </div>
-                  {testCompleted ? (
-                    <Badge className="bg-success text-success-foreground">
-                      <CheckCircle2 className="w-3 h-3 mr-1" />
-                      Concluído
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="gap-1">
-                      <Clock className="w-3 h-3" />
-                      Pendente
-                    </Badge>
-                  )}
+          <Card className="shadow-lg border-0 glass hover:shadow-xl transition-shadow">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <ClipboardList className="w-6 h-6 text-primary" />
                 </div>
-                <CardTitle className="text-lg mt-4">{test.title}</CardTitle>
-                <CardDescription className="line-clamp-2">
-                  {test.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                  <span>{test.questions.length} questões</span>
-                  <span>~15 min</span>
-                </div>
-                <Button
-                  className="w-full"
-                  disabled={testCompleted}
-                  onClick={() => navigate(`/test/${test.id}`)}
-                >
-                  {testCompleted ? "Prova Concluída" : "Iniciar Prova"}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                {testCompleted ? (
+                  <Badge className="bg-success text-success-foreground">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Concluído
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="gap-1">
+                    <Clock className="w-3 h-3" />
+                    Pendente
+                  </Badge>
+                )}
+              </div>
+              <CardTitle className="text-lg mt-4">Avaliação Excel Intermediário</CardTitle>
+              <CardDescription className="line-clamp-2">
+                Teste seus conhecimentos em Excel
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
+                <span>{questions.length} questões</span>
+                <span>~15 min</span>
+              </div>
+              <Button
+                className="w-full"
+                disabled={testCompleted}
+                onClick={() => navigate("/test/excel")}
+              >
+                {testCompleted ? "Prova Concluída" : "Iniciar Prova"}
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {testCompleted && submission && (
@@ -99,14 +97,14 @@ const EmployeeDashboard = () => {
             <CardHeader>
               <CardTitle className="text-lg">Resultado da sua avaliação</CardTitle>
               <CardDescription>
-                Você acertou {submission.score} de {tests[0]?.questions.length || 15} questões
+                Você acertou {submission.score} de {submission.total_questions || questions.length} questões
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="w-full bg-secondary rounded-full h-3">
                 <div 
                   className="bg-primary h-3 rounded-full transition-all"
-                  style={{ width: `${((submission.score || 0) / (tests[0]?.questions.length || 15)) * 100}%` }}
+                  style={{ width: `${((submission.score || 0) / (submission.total_questions || questions.length)) * 100}%` }}
                 />
               </div>
               <p className="text-sm text-muted-foreground mt-2">

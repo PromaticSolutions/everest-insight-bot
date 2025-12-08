@@ -2,7 +2,7 @@ export interface GenerateFeedbackParams {
   employeeName: string;
   position: string;
   sector: string;
-  answers: number[];
+  answers: Array<{ questionId: string; answer: number }>;
   questions: Array<{
     id: string;
     question: string;
@@ -10,13 +10,12 @@ export interface GenerateFeedbackParams {
     correct_answer: number;
     category: string;
   }>;
-  score: number;
+  score?: number;
   totalQuestions: number;
 }
 
 export async function generateTestFeedback(params: GenerateFeedbackParams): Promise<{ feedback: string }> {
   try {
-    // Chamar a API route ao invés de chamar diretamente a Anthropic
     const response = await fetch('/api/generate-feedback', {
       method: 'POST',
       headers: {

@@ -1,33 +1,29 @@
 export interface Employee {
   id: string;
-  fullName: string;
+  name: string;
   sector: string;
   position: string;
-  createdAt: string;
+  created_at: string;
 }
 
 export interface Question {
   id: string;
-  questionText: string;
+  question: string;
   options: string[];
-  correctAnswer: number;
+  correct_answer: number;
   category: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface TestSubmission {
   id: string;
-  employeeId: string;
-  employee: Employee;
+  employee_id: string;
+  employee?: Employee;
   answers: Record<string, number>;
-  submittedAt: string;
+  created_at: string;
+  completed_at?: string;
   score?: number;
-  feedback?: string;
-}
-
-export interface Test {
-  id: string;
-  title: string;
-  description: string;
-  questions: Question[];
-  isActive: boolean;
+  total_questions?: number;
+  ai_feedback?: string;
 }
